@@ -1,11 +1,14 @@
-// Глобальний обробник помилок — підключається ОСТАННІМ в app.js
-// Усі помилки з будь-якого маршруту потрапляють сюди через next(error)
+import logger from '../utils/logger.js'
 
 export const errorMiddleware = (err, req, res, next) => {
-  const status = err.status || 500
+  const status = err.statusCode || err.status || 500
   const message = err.message || 'Internal Server Error'
 
-  console.error(`[${new Date().toISOString()}] ${status} - ${message}`)
+  if (err.isOperational) {
+    logger.warn({ status, err }, message)
+  } else {
+    logger.error({ status, err }, message)
+  }
 
-  res.status(status).json({ message })
+  res.status(status).json({ status: "error", error: message })
 }

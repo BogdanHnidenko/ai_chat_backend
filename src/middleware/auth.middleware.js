@@ -1,14 +1,30 @@
-// Тут shared middleware — виконується ДО controller
-// Сюди: перевірка токена, ролі, rate limiting, логування запитів
+import jwt from 'jsonwebtoken'
+import { config } from '../config/app.config.js'
+import { AppError } from '../utils/AppError.js'
+
+const PUBLIC_ROUTES = [
+  { method: 'POST', path: '/api/auth/register' },
+  { method: 'POST', path: '/api/auth/login' },
+]
 
 export const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1]
+  const isPublic = PUBLIC_ROUTES.some(
+    route => route.method === req.method && route.path === req.path
+  )
+  if (isPublic) return next()
 
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' })
+  const token = req.headers.authorization
+  const userId = req.query?.userId
+  if (!token || !userId) {
+    return next(new AppError('no auth', 401))
   }
 
-  // тут буде верифікація JWT (наприклад через jsonwebtoken)
-  req.user = { id: 1, role: 'user' } // прикріплюємо юзера до запиту
-  next()
+  try {
+    const decodedUser = jwt.verify(token, config.jwtSecret)
+    if (decodedUser.id !== userId) return next(new AppError('no auth', 401))
+    req._user_ = decodedUser
+    next()
+  } catch {
+    next(new AppError('no auth', 401))
+  }
 }
